@@ -19,6 +19,8 @@ import jwt from 'jsonwebtoken'
 // import jws from 'jws'
 import fs from 'fs'
 import moment from 'moment'
+import Promise from 'bluebird'
+import { InvalidTokenError, } from 'oauth2-server'
 
 
 /**
@@ -39,21 +41,30 @@ function generateAccessToken(client, user, scope) {
   logger.log('debug', 'generateAccessToken::user:%j', user)
   logger.log('debug', 'generateAccessToken::scope:%j', scope)
 
-  // Payload
-  // todo: this payload is for example
-  const payload = {
-    iss: OAuthConfig.options.jwt.iss,
-    user: user,
-    client: client,
-    scope: scope,
-    type: 'access_token',
-  }
+  return new Promise((resolve, reject) => {
+    try {
+      // Payload
+      // todo: this payload is an example
+      const payload = {
+        iss: OAuthConfig.options.jwt.iss,
+        user: user,
+        client: client,
+        scope: scope,
+        type: 'access_token', // if you use the same authorization certificate
+      }
 
-  const privateKey = fs.readFileSync(OAuthConfig.options.jwt.privateKey)
+      const privateKey = fs.readFileSync(OAuthConfig.options.jwt.privateKey)
 
-  return jwt.sign(payload, privateKey, {
-    expiresIn: OAuthConfig.options.token.accessTokenLifetime,
-    algorithm: 'RS256',
+      const token = jwt.sign(payload, privateKey, {
+        expiresIn: OAuthConfig.options.token.accessTokenLifetime,
+        algorithm: 'RS256',
+      })
+
+      return resolve(token)
+    } catch (e) {
+      // todo: set oauth exception
+      return reject(e)
+    }
   })
 }
 
@@ -76,40 +87,32 @@ function generateRefreshToken(client, user, scope) {
   logger.log('debug', 'generateRefreshToken::user:%j', user)
   logger.log('debug', 'generateRefreshToken::scope:%j', scope)
 
-  const payload = {
-    user: user,
-    client: client,
-    scope: scope,
-    type: 'refresh_token',
-    iss: OAuthConfig.options.jwt.iss,
-  }
+  return new Promise((resolve, reject) => {
+    try {
+      // Payload
+      // todo: this payload is an example
+      const payload = {
+        user: user,
+        client: client,
+        scope: scope,
+        type: 'refresh_token', // if you use the same authorization certificate
+        iss: OAuthConfig.options.jwt.iss,
+      }
 
-  const privateKey = fs.readFileSync(OAuthConfig.options.jwt.privateKey)
+      const privateKey = fs.readFileSync(OAuthConfig.options.jwt.privateKey)
 
-  return jwt.sign(payload, privateKey, {
-    expiresIn: OAuthConfig.options.token.accessTokenLifetime,
-    notBefore: OAuthConfig.options.token.accessTokenLifetime,
-    algorithm: 'RS256',
+      const token = jwt.sign(payload, privateKey, {
+        expiresIn: OAuthConfig.options.token.accessTokenLifetime,
+        notBefore: OAuthConfig.options.token.accessTokenLifetime,
+        algorithm: 'RS256',
+      })
+
+      return resolve(token)
+    } catch (e) {
+      // todo: set oauth exception
+      return reject(e)
+    }
   })
-
-  // Using JWS
-  // Payload, Using JWS
-  // const payload = {
-  //   user: user,
-  //   client: client,
-  //   scope: scope,
-  //   type: 'refresh_token',
-  //   iss: OAuthConfig.options.jwt.iss,
-  //   exp: moment().add(OAuthConfig.options.token.refreshTokenLifetime, 'seconds').unix(),
-  // }
-  //
-  // const privateKey = fs.readFileSync(OAuthConfig.options.jwt.privateKey)
-  //
-  // return jws.sign({
-  //   header: { typ: 'JWT', alg: 'RS256', },
-  //   payload: payload,
-  //   secret: privateKey,
-  // })
 }
 
 
@@ -142,48 +145,54 @@ function generateRefreshToken(client, user, scope) {
 function getAccessToken(bearerToken) {
   logger.log('debug', 'getAccessToken  %j', bearerToken)
 
-  // const publicKey = fs.readFileSync(jwtConfig.publicKey)
-  const publicKey = fs.readFileSync(OAuthConfig.options.jwt.publicKey)
+  return new Promise((resolve, reject) => {
+    try {
+      const publicKey = fs.readFileSync(OAuthConfig.options.jwt.publicKey)
 
-  return jwt.verify(bearerToken, publicKey, (err, decoded) => {
-    if (err)
-      return err   // the err contains JWT error data
+      return jwt.verify(bearerToken, publicKey, (err, decoded) => {
+        if (err)
+          return reject(new InvalidTokenError(err.message))   // the err contains JWT error data
 
-    logger.log('debug', 'getAccessToken::JWT::decoded:%j', decoded)
+        logger.log('debug', 'getAccessToken::JWT::decoded:%j', decoded)
 
-    const token = {}
+        const token = {}
 
-    token.accessToken = bearerToken
-    token.user = decoded.user
-    token.client = decoded.client
-    token.scope = decoded.scope
-    token.accessTokenExpiresAt = moment.unix(decoded.exp).toDate()
+        token.accessToken = bearerToken
+        token.user = decoded.user
+        token.client = decoded.client
+        token.scope = decoded.scope
+        token.accessTokenExpiresAt = moment.unix(decoded.exp).toDate()
 
-    return token
+        return resolve(token)
+      })
+
+      // if you saved the token:
+      // return OAuthAccessToken
+      //   .getAccessToken(bearerToken)
+      //   .then((accessToken) => {
+      //     const token = {}
+      //
+      //     token.accessToken = accessToken.accessToken
+      //     token.user = accessToken.User
+      //     token.client = accessToken.OAuthClient
+      //     token.scope = accessToken.scope
+      //     token.accessTokenExpiresAt = accessToken.accessTokenExpiresAt
+      //
+      //     logger.log('debug', 'getAccessToken::token')
+      //     logger.log('debug', 'getAccessToken::token::%j', token)
+      //     logger.log('debug', 'getAccessToken::accessToken::%j', accessToken)
+      //
+      //     return token
+      //   })
+      //   .catch((err) => {
+      //     logger.log('debug', 'getAccessToken - Err: ', err)
+      //     return err
+      //   })
+    } catch (e) {
+      // todo: set oauth exception
+      return reject(e)
+    }
   })
-
-  // if you saved the token:
-  // return OAuthAccessToken
-  //   .getAccessToken(bearerToken)
-  //   .then((accessToken) => {
-  //     const token = {}
-  //
-  //     token.accessToken = accessToken.accessToken
-  //     token.user = accessToken.User
-  //     token.client = accessToken.OAuthClient
-  //     token.scope = accessToken.scope
-  //     token.accessTokenExpiresAt = accessToken.accessTokenExpiresAt
-  //
-  //     logger.log('debug', 'getAccessToken::token')
-  //     logger.log('debug', 'getAccessToken::token::%j', token)
-  //     logger.log('debug', 'getAccessToken::accessToken::%j', accessToken)
-  //
-  //     return token
-  //   })
-  //   .catch((err) => {
-  //     logger.log('debug', 'getAccessToken - Err: ', err)
-  //     return err
-  //   })
 }
 
 
@@ -199,63 +208,68 @@ function getAccessToken(bearerToken) {
  */
 function getRefreshToken(refreshToken) {
   logger.log('debug', 'getRefreshToken %j', refreshToken)
-  const publicKey = fs.readFileSync(OAuthConfig.options.jwt.publicKey)
 
-  // Using JWT
-  return jwt.verify(refreshToken, publicKey, (err, decoded) => {
-    if (err) {
-      // return err   // the err contains JWT error data
-      return Promise.reject(new Error('Reason'))
-    }
+  return new Promise((resolve, reject) => {
+    const publicKey = fs.readFileSync(OAuthConfig.options.jwt.publicKey)
 
-    logger.log('debug', 'getAccessToken::JWT::decoded:%j', decoded)
+    // Using JWT
+    return jwt.verify(refreshToken, publicKey, (err, decoded) => {
+      if (err)
+        return reject(new InvalidTokenError(err.message))
 
-    const token = {}
+      // Example Validation if you use the same authorization certificate
+      if (decoded.token_type !== 'refresh_token')
+        return reject(new InvalidTokenError('invalid_token'))
 
-    token.user = decoded.user
-    token.client = decoded.client
-    token.client.id = decoded.client._id
-    token.refreshTokenExpiresAt = moment.unix(decoded.exp).toDate()
-    token.refreshToken = refreshToken
-    token.scope = decoded.scope
+      logger.log('debug', 'getAccessToken::JWT::decoded:%j', decoded)
 
-    return token
+      const token = {}
+
+      token.user = decoded.user
+      token.client = decoded.client
+      token.client.id = decoded.client._id
+      token.refreshTokenExpiresAt = moment.unix(decoded.exp).toDate()
+      token.refreshToken = refreshToken
+      token.scope = decoded.scope
+
+      return resolve(token)
+    })
+
+    // Using JWS
+    // if (jws.verify(refreshToken, 'RS256', publicKey)) {
+    //   const decoded = jws.decode(refreshToken)
+    //
+    //   const payload = JSON.parse(decoded.payload)
+    //
+    //   logger.log('debug', 'getRefreshToken::JWS::decoded:%j', decoded)
+    //
+    //   const token = {}
+    //
+    //   token.user = payload.user
+    //   token.client = payload.client
+    //   token.client.id = payload.client._id
+    //   token.refreshTokenExpiresAt = moment.unix(payload.exp).toDate()
+    //   token.refreshToken = refreshToken
+    //   token.scope = payload.scope
+    //
+    //   return resolve(token)
+    // } else {
+    //   logger.log('debug', 'getRefreshToken::Invalido')
+    //   return reject(new InvalidTokenError(err.message))
+    // }
+
+    // if you saved the refresh token:
+    // return OAuthRefreshToken
+    //   .getRefreshToken(refreshToken)
+    //   .then((token) => {
+    //     logger.log('debug', '\n\ngetRefreshToken::%j\n\n', token)
+    //     return resolve(token)
+    //   })
+    //   .catch((err) => {
+    //     logger.log('debug', 'getRefreshToken - Err: ', err)
+    //     return reject(new InvalidTokenError(err.message))
+    //   })
   })
-
-  // Using JWS
-  // if (jws.verify(refreshToken, 'RS256', publicKey)) {
-  //   const decoded = jws.decode(refreshToken)
-  //
-  //   const payload = JSON.parse(decoded.payload)
-  //
-  //   logger.log('debug', 'getRefreshToken::JWS::decoded:%j', decoded)
-  //
-  //   const token = {}
-  //
-  //   token.user = payload.user
-  //   token.client = payload.client
-  //   token.client.id = payload.client._id
-  //   token.refreshTokenExpiresAt = moment.unix(payload.exp).toDate()
-  //   token.refreshToken = refreshToken
-  //   token.scope = payload.scope
-  //
-  //   return token
-  // } else {
-  //   logger.log('debug', 'getRefreshToken::Invalido')
-  //   return new Error('refreshToken Invalido')
-  // }
-
-  // if you saved the refresh token:
-  // return OAuthRefreshToken
-  //   .getRefreshToken(refreshToken)
-  //   .then((token) => {
-  //     logger.log('debug', '\n\ngetRefreshToken::%j\n\n', token)
-  //     return token
-  //   })
-  //   .catch((err) => {
-  //     logger.log('debug', 'getRefreshToken - Err: ', err)
-  //     return err
-  //   })
 }
 
 
@@ -271,24 +285,28 @@ function getRefreshToken(refreshToken) {
  */
 function getAuthorizationCode(code) {
   logger.log('debug', 'getAuthorizationCode %j', code)
-  return OAuthAuthorizationCode
-    .getAuthorizationCode(code)
-    .then((authCode) => {
-      const client = authCode.OAuthClient
-      const user = authCode.User
-      return {
-        code: code,
-        client: client,
-        expiresAt: authCode.expiresAt,
-        redirectUri: authCode.redirectUri,
-        user: user,
-        scope: authCode.scope,
-      }
-    })
-    .catch((err) => {
-      logger.log('debug', 'getAuthorizationCode - Err: ', err)
-      return err
-    })
+
+  return new Promise((resolve, reject) => {
+    OAuthAuthorizationCode
+      .getAuthorizationCode(code)
+      .then((authCode) => {
+        const client = authCode.OAuthClient
+        const user = authCode.User
+        return resolve({
+          code: code,
+          client: client,
+          expiresAt: authCode.expiresAt,
+          redirectUri: authCode.redirectUri,
+          user: user,
+          scope: authCode.scope,
+        })
+      })
+      .catch((e) => {
+        // todo: set oauth exception
+        logger.log('debug', 'getAuthorizationCode - Err: ', err)
+        return reject(e)
+      })
+  })
 }
 
 
@@ -305,28 +323,32 @@ function getAuthorizationCode(code) {
  */
 function getClient(clientId, clientSecret) {
   logger.log('debug', 'getClient::clientId %j, clientSecret %j', clientId, clientSecret)
-  return OAuthClient
-    .getOAuthClient({ clientId, clientSecret, })
-    .then((v) => {
-      const client = v
 
-      // Set default Grants
-      client.grants = (client.grants) ? client.grants : OAuthConfig.grants
+  return new Promise((resolve, reject) => {
+    OAuthClient
+      .getOAuthClient({ clientId, clientSecret, })
+      .then((v) => {
+        const client = v
 
-      // Set default accessTokenLifetime
-      client.accessTokenLifetime = (client.accessTokenLifetime) ?
-        client.accessTokenLifetime : OAuthConfig.options.token.accessTokenLifetime
+        // Set default Grants
+        client.grants = (client.grants) ? client.grants : OAuthConfig.grants
 
-      // Set default refreshTokenLifetime
-      client.refreshTokenLifetime = (client.refreshTokenLifetime) ?
-        client.refreshTokenLifetime : OAuthConfig.options.token.refreshTokenLifetime
+        // Set default accessTokenLifetime
+        client.accessTokenLifetime = (client.accessTokenLifetime) ?
+          client.accessTokenLifetime : OAuthConfig.options.token.accessTokenLifetime
 
-      return client
-    })
-    .catch((err) => {
-      logger.log('debug', 'getClient - Err: ', err)
-      return err
-    })
+        // Set default refreshTokenLifetime
+        client.refreshTokenLifetime = (client.refreshTokenLifetime) ?
+          client.refreshTokenLifetime : OAuthConfig.options.token.refreshTokenLifetime
+
+        return resolve(client)
+      })
+      .catch((e) => {
+        // todo: set oauth exception
+        logger.log('debug', 'getClient - Err: ', e)
+        return reject(e)
+      })
+  })
 }
 
 
@@ -339,16 +361,19 @@ function getClient(clientId, clientSecret) {
  *
  * @param username - The username of the user to retrieve.
  * @param password - The user’s password.
- * @returns {Promise<User>}
+ * @returns {Object<User>}
  */
 function getUser(username, password) {
-  return User
-    .getUser(username, password)
-    .then((user) => user)
-    .catch((err) => {
-      logger.log('debug', 'getUser - Err: ', err)
-      return err
-    })
+  return new Promise((resolve, reject) => {
+    User
+      .getUser(username, password)
+      .then((user) => resolve(user))
+      .catch((e) => {
+        // todo: set oauth exception
+        logger.log('debug', 'getUser - Err: ', e)
+        return reject(e)
+      })
+  })
 }
 
 
@@ -365,18 +390,21 @@ function getUser(username, password) {
  */
 function getUserFromClient(client) {
   logger.log('debug', 'getUserFromClient:%j', client)
-  const { clientId, } = client
+  return new Promise((resolve, reject) => {
+    const { clientId, } = client
 
-  return OAuthClient
-    .getUserFromClient(clientId)
-    .then((user) => {
-      logger.log('debug', 'getUserFromClient::User::%j', user)
-      return user
-    })
-    .catch((err) => {
-      logger.log('debug', 'getUserFromClient - Err: ', err)
-      return err
-    })
+    return OAuthClient
+      .getUserFromClient(clientId)
+      .then((user) => {
+        logger.log('debug', 'getUserFromClient::User::%j', user)
+        return resolve(user)
+      })
+      .catch((e) => {
+        // todo: set oauth exception
+        logger.log('debug', 'getUserFromClient - Err: ', e)
+        return reject(e)
+      })
+  })
 }
 
 
@@ -394,16 +422,24 @@ function getUserFromClient(client) {
  */
 function saveToken(token, client, user) {
   logger.log('debug', 'saveToken::\nToken: %j\nClient: %j\nUser: %j', token, client, user)
+  return new Promise((resolve, reject) => {
+    try {
+      const savedToken = assign(  // expected to return client and user, but not returning
+        {
+          client: client,
+          user: user,
+          accessToken: (token.accessToken), // proxy
+          refreshToken: (token.refreshToken), // proxy
+        },
+        token
+      )
 
-  return assign(  // expected to return client and user, but not returning
-    {
-      client: client,
-      user: user,
-      accessToken: (token.accessToken), // proxy
-      refreshToken: (token.refreshToken), // proxy
-    },
-    token
-  )
+      return resolve(savedToken)
+    } catch (e) {
+      // todo: set oauth exception
+      return reject(e)
+    }
+  })
 
   // if you need save the token or something:
   // const l = [
@@ -462,23 +498,27 @@ function saveToken(token, client, user) {
  */
 function saveAuthorizationCode(code, client, user) {
   logger.log('debug', 'saveAuthorizationCode\ncode %j\nclient %j\nuser %j', code, client, user)
-  return OAuthAuthorizationCode
-    .saveAuthorizationCode({
-      expiresAt: code.expiresAt,
-      OAuthClient: client._id,
-      redirectUri: client.redirectUris[0], // todo: get Authorization RedirectUri
-      authorizationCode: code.authorizationCode,
-      User: user._id,
-      scope: code.scope,
-    })
-    .then(() => {
-      code.code = code.authorizationCode
-      return code
-    })
-    .catch((err) => {
-      logger.log('debug', 'saveAuthorizationCode - Err: ', err)
-      return err
-    })
+
+  return new Promise((resolve, reject) => {
+    OAuthAuthorizationCode
+      .saveAuthorizationCode({
+        expiresAt: code.expiresAt,
+        OAuthClient: client._id,
+        redirectUri: client.redirectUris[0], // todo: get Authorization RedirectUri
+        authorizationCode: code.authorizationCode,
+        User: user._id,
+        scope: code.scope,
+      })
+      .then(() => {
+        code.code = code.authorizationCode
+        return resolve(code)
+      })
+      .catch((e) => {
+        // todo: set oauth exception
+        logger.log('debug', 'saveAuthorizationCode - Err: ', e)
+        return reject(e)
+      })
+  })
 }
 
 
@@ -490,7 +530,7 @@ function saveAuthorizationCode(code, client, user) {
  * Invoked during: refresh_token grant
  *
  * @param token
- * @returns {Boolean}
+ * @returns {Object<Boolean>}
  */
 function revokeToken(token) {
   logger.log('debug', 'revokeToken %j', token)
@@ -499,16 +539,18 @@ function revokeToken(token) {
   // if you saved the refresh token:
   // other option is use redis with ttl at expiration time how a blacklist
 
-  // return OAuthRefreshToken
-  //   .revokeToken(token.refreshToken)
-  //   .then((token) => {
-  //     logger.log('debug', 'revokeToken::Then::%j', token)
-  //     return token
-  //   })
-  //   .catch((err) => {
-  //     logger.log('debug', 'revokeToken - Err: ', err)
-  //     return false
-  //   })
+  // return new Promise((resolve, reject) => {
+  //   OAuthRefreshToken
+  //     .revokeToken(token.refreshToken)
+  //     .then((token) => {
+  //       logger.log('debug', 'revokeToken::Then::%j', token)
+  //       return resolve(token)
+  //     })
+  //     .catch((err) => {
+  //       logger.log('debug', 'revokeToken - Err: ', err)
+  //       return reject(false)
+  //     })
+  // })
 }
 
 
@@ -520,17 +562,21 @@ function revokeToken(token) {
  * Invoked during: authorization_code grant
  *
  * @param code
- * @returns {Boolean}
+ * @returns {Object<Boolean>}
  */
 function revokeAuthorizationCode(code) {
   logger.log('debug', 'revokeAuthorizationCode %j', code)
-  return OAuthAuthorizationCode
-    .removeAuthorizationCode()
-    .then((code) => code)
-    .catch((err) => {
-      logger.log('debug', 'revokeAuthorizationCode - Err: ', err)
-      return false
-    })
+
+  return new Promise((resolve, reject) => {
+    OAuthAuthorizationCode
+      .removeAuthorizationCode()
+      .then((code) => resolve(code))
+      .catch((e) => {
+        // todo: set oauth exception
+        logger.log('debug', 'revokeAuthorizationCode - Err: ', e)
+        return reject(false)
+      })
+  })
 }
 
 
