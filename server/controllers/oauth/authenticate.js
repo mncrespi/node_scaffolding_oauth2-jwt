@@ -6,7 +6,7 @@ import { assign, } from 'lodash'
 
 
 /**
- * Authentication Middleware
+ * oAuth2 Authentication Middleware
  * @param options
  * @returns {Function}
  */

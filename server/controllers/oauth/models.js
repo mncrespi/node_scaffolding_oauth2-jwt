@@ -1,11 +1,25 @@
 /**
- * DOC: https://oauth2-server.readthedocs.io/en/latest/model/spec.html#model-specification
+ * DOC: oAuth2 - https://oauth2-server.readthedocs.io/en/latest/model/spec.html#model-specification
+ * DOC: JWT - https://tools.ietf.org/html/rfc7519
+ * DOC: JWS - https://tools.ietf.org/html/rfc7515
+ * DOC: oAuth2 - https://auth0.com/blog/refresh-tokens-what-are-they-and-when-to-use-them/
  */
 
 import logger from '../../../config/winston'
-import { OAuthAccessToken, OAuthAuthorizationCode, OAuthClient, OAuthRefreshToken, User, } from '../../models/oauth'
+import {
+  User,
+  OAuthClient,
+  OAuthAuthorizationCode,
+  // OAuthAccessToken,
+  // OAuthRefreshToken,
+} from '../../models/oauth'
 import OAuthConfig from '../../../config/oauth'
 import { assign, } from 'lodash'
+import jwt from 'jsonwebtoken'
+// import jws from 'jws'
+import fs from 'fs'
+import moment from 'moment'
+
 
 /**
  * Invoked to generate a new access token.
@@ -19,7 +33,29 @@ import { assign, } from 'lodash'
  * @param user
  * @param scope
  */
-// function generateAccessToken(client, user, scope) {}
+function generateAccessToken(client, user, scope) {
+  logger.log('debug', 'generateAccessToken')
+  logger.log('debug', 'generateAccessToken::client:%j', client)
+  logger.log('debug', 'generateAccessToken::user:%j', user)
+  logger.log('debug', 'generateAccessToken::scope:%j', scope)
+
+  // Payload
+  // todo: this payload is for example
+  const payload = {
+    iss: OAuthConfig.options.jwt.iss,
+    user: user,
+    client: client,
+    scope: scope,
+    type: 'access_token',
+  }
+
+  const privateKey = fs.readFileSync(OAuthConfig.options.jwt.privateKey)
+
+  return jwt.sign(payload, privateKey, {
+    expiresIn: OAuthConfig.options.token.accessTokenLifetime,
+    algorithm: 'RS256',
+  })
+}
 
 
 /**
@@ -34,7 +70,47 @@ import { assign, } from 'lodash'
  * @param user
  * @param scope
  */
-// function generateRefreshToken(client, user, scope) {}
+function generateRefreshToken(client, user, scope) {
+  logger.log('debug', 'generateRefreshToken')
+  logger.log('debug', 'generateRefreshToken::client:%j', client)
+  logger.log('debug', 'generateRefreshToken::user:%j', user)
+  logger.log('debug', 'generateRefreshToken::scope:%j', scope)
+
+  const payload = {
+    user: user,
+    client: client,
+    scope: scope,
+    type: 'refresh_token',
+    iss: OAuthConfig.options.jwt.iss,
+  }
+
+  const privateKey = fs.readFileSync(OAuthConfig.options.jwt.privateKey)
+
+  return jwt.sign(payload, privateKey, {
+    expiresIn: OAuthConfig.options.token.accessTokenLifetime,
+    notBefore: OAuthConfig.options.token.accessTokenLifetime,
+    algorithm: 'RS256',
+  })
+
+  // Using JWS
+  // Payload, Using JWS
+  // const payload = {
+  //   user: user,
+  //   client: client,
+  //   scope: scope,
+  //   type: 'refresh_token',
+  //   iss: OAuthConfig.options.jwt.iss,
+  //   exp: moment().add(OAuthConfig.options.token.refreshTokenLifetime, 'seconds').unix(),
+  // }
+  //
+  // const privateKey = fs.readFileSync(OAuthConfig.options.jwt.privateKey)
+  //
+  // return jws.sign({
+  //   header: { typ: 'JWT', alg: 'RS256', },
+  //   payload: payload,
+  //   secret: privateKey,
+  // })
+}
 
 
 /**
@@ -65,27 +141,49 @@ import { assign, } from 'lodash'
  */
 function getAccessToken(bearerToken) {
   logger.log('debug', 'getAccessToken  %j', bearerToken)
-  return OAuthAccessToken
-    .getAccessToken(bearerToken)
-    .then((accessToken) => {
-      const token = {}
 
-      token.accessToken = accessToken.accessToken
-      token.user = accessToken.User
-      token.client = accessToken.OAuthClient
-      token.scope = accessToken.scope
-      token.accessTokenExpiresAt = accessToken.accessTokenExpiresAt
+  // const publicKey = fs.readFileSync(jwtConfig.publicKey)
+  const publicKey = fs.readFileSync(OAuthConfig.options.jwt.publicKey)
 
-      logger.log('debug', 'getAccessToken::token')
-      logger.log('debug', 'getAccessToken::token::%j', token)
-      logger.log('debug', 'getAccessToken::accessToken::%j', accessToken)
+  return jwt.verify(bearerToken, publicKey, (err, decoded) => {
+    if (err)
+      return err   // the err contains JWT error data
 
-      return token
-    })
-    .catch((err) => {
-      logger.log('debug', 'getAccessToken - Err: ', err)
-      return err
-    })
+    logger.log('debug', 'getAccessToken::JWT::decoded:%j', decoded)
+
+    const token = {}
+
+    token.accessToken = bearerToken
+    token.user = decoded.user
+    token.client = decoded.client
+    token.scope = decoded.scope
+    token.accessTokenExpiresAt = moment.unix(decoded.exp).toDate()
+
+    return token
+  })
+
+  // if you saved the token:
+  // return OAuthAccessToken
+  //   .getAccessToken(bearerToken)
+  //   .then((accessToken) => {
+  //     const token = {}
+  //
+  //     token.accessToken = accessToken.accessToken
+  //     token.user = accessToken.User
+  //     token.client = accessToken.OAuthClient
+  //     token.scope = accessToken.scope
+  //     token.accessTokenExpiresAt = accessToken.accessTokenExpiresAt
+  //
+  //     logger.log('debug', 'getAccessToken::token')
+  //     logger.log('debug', 'getAccessToken::token::%j', token)
+  //     logger.log('debug', 'getAccessToken::accessToken::%j', accessToken)
+  //
+  //     return token
+  //   })
+  //   .catch((err) => {
+  //     logger.log('debug', 'getAccessToken - Err: ', err)
+  //     return err
+  //   })
 }
 
 
@@ -101,16 +199,63 @@ function getAccessToken(bearerToken) {
  */
 function getRefreshToken(refreshToken) {
   logger.log('debug', 'getRefreshToken %j', refreshToken)
-  return OAuthRefreshToken
-    .getRefreshToken(refreshToken)
-    .then((token) => {
-      logger.log('debug', '\n\ngetRefreshToken::%j\n\n', token)
-      return token
-    })
-    .catch((err) => {
-      logger.log('debug', 'getRefreshToken - Err: ', err)
-      return err
-    })
+  const publicKey = fs.readFileSync(OAuthConfig.options.jwt.publicKey)
+
+  // Using JWT
+  return jwt.verify(refreshToken, publicKey, (err, decoded) => {
+    if (err) {
+      // return err   // the err contains JWT error data
+      return Promise.reject(new Error('Reason'))
+    }
+
+    logger.log('debug', 'getAccessToken::JWT::decoded:%j', decoded)
+
+    const token = {}
+
+    token.user = decoded.user
+    token.client = decoded.client
+    token.client.id = decoded.client._id
+    token.refreshTokenExpiresAt = moment.unix(decoded.exp).toDate()
+    token.refreshToken = refreshToken
+    token.scope = decoded.scope
+
+    return token
+  })
+
+  // Using JWS
+  // if (jws.verify(refreshToken, 'RS256', publicKey)) {
+  //   const decoded = jws.decode(refreshToken)
+  //
+  //   const payload = JSON.parse(decoded.payload)
+  //
+  //   logger.log('debug', 'getRefreshToken::JWS::decoded:%j', decoded)
+  //
+  //   const token = {}
+  //
+  //   token.user = payload.user
+  //   token.client = payload.client
+  //   token.client.id = payload.client._id
+  //   token.refreshTokenExpiresAt = moment.unix(payload.exp).toDate()
+  //   token.refreshToken = refreshToken
+  //   token.scope = payload.scope
+  //
+  //   return token
+  // } else {
+  //   logger.log('debug', 'getRefreshToken::Invalido')
+  //   return new Error('refreshToken Invalido')
+  // }
+
+  // if you saved the refresh token:
+  // return OAuthRefreshToken
+  //   .getRefreshToken(refreshToken)
+  //   .then((token) => {
+  //     logger.log('debug', '\n\ngetRefreshToken::%j\n\n', token)
+  //     return token
+  //   })
+  //   .catch((err) => {
+  //     logger.log('debug', 'getRefreshToken - Err: ', err)
+  //     return err
+  //   })
 }
 
 
@@ -249,45 +394,57 @@ function getUserFromClient(client) {
  */
 function saveToken(token, client, user) {
   logger.log('debug', 'saveToken::\nToken: %j\nClient: %j\nUser: %j', token, client, user)
-  const l = [
-    // Create AccessToken
-    OAuthAccessToken
-      .saveAccessToken({
-        accessToken: token.accessToken,
-        accessTokenExpiresAt: token.accessTokenExpiresAt,
-        clientId: client._id,
-        userId: user._id,
-        scope: token.scope,
-      }),
-  ]
 
-  // Create AccessToken for password grant
-  if (token.refreshToken)
-    l.push(OAuthRefreshToken.saveRefreshToken({
-      refreshToken: token.refreshToken,
-      refreshTokenExpiresAt: token.refreshTokenExpiresAt,
-      clientId: client._id,
-      userId: user._id,
-      scope: token.scope,
-    }))
+  return assign(  // expected to return client and user, but not returning
+    {
+      client: client,
+      user: user,
+      accessToken: (token.accessToken), // proxy
+      refreshToken: (token.refreshToken), // proxy
+    },
+    token
+  )
 
-  return Promise
-    .all(l)
-    .then((resultsArray) => {
-      return assign(  // expected to return client and user, but not returning
-        {
-          client: client,
-          user: user,
-          accessToken: token.accessToken, // proxy
-          refreshToken: token.refreshToken, // proxy
-        },
-        token
-      )
-    })
-    .catch((err) => {
-      logger.log('debug', 'revokeToken - Err: ', err)
-      return err
-    })
+  // if you need save the token or something:
+  // const l = [
+  //   // Create AccessToken
+  //   OAuthAccessToken
+  //     .saveAccessToken({
+  //       accessToken: token.accessToken,
+  //       accessTokenExpiresAt: token.accessTokenExpiresAt,
+  //       clientId: client._id,
+  //       userId: user._id,
+  //       scope: token.scope,
+  //     }),
+  // ]
+  //
+  // // Create AccessToken for password grant
+  // if (token.refreshToken)
+  //   l.push(OAuthRefreshToken.saveRefreshToken({
+  //     refreshToken: token.refreshToken,
+  //     refreshTokenExpiresAt: token.refreshTokenExpiresAt,
+  //     clientId: client._id,
+  //     userId: user._id,
+  //     scope: token.scope,
+  //   }))
+  //
+  // return Promise
+  //   .all(l)
+  //   .then((resultsArray) => {
+  //     return assign(  // expected to return client and user, but not returning
+  //       {
+  //         client: client,
+  //         user: user,
+  //         accessToken: token.accessToken, // proxy
+  //         refreshToken: token.refreshToken, // proxy
+  //       },
+  //       token
+  //     )
+  //   })
+  //   .catch((err) => {
+  //     logger.log('debug', 'revokeToken - Err: ', err)
+  //     return err
+  //   })
 }
 
 
@@ -337,16 +494,21 @@ function saveAuthorizationCode(code, client, user) {
  */
 function revokeToken(token) {
   logger.log('debug', 'revokeToken %j', token)
-  return OAuthRefreshToken
-    .revokeToken(token.refreshToken)
-    .then((token) => {
-      logger.log('debug', 'revokeToken::Then::%j', token)
-      return token
-    })
-    .catch((err) => {
-      logger.log('debug', 'revokeToken - Err: ', err)
-      return false
-    })
+  return token
+
+  // if you saved the refresh token:
+  // other option is use redis with ttl at expiration time how a blacklist
+
+  // return OAuthRefreshToken
+  //   .revokeToken(token.refreshToken)
+  //   .then((token) => {
+  //     logger.log('debug', 'revokeToken::Then::%j', token)
+  //     return token
+  //   })
+  //   .catch((err) => {
+  //     logger.log('debug', 'revokeToken - Err: ', err)
+  //     return false
+  //   })
 }
 
 
@@ -407,8 +569,8 @@ function validateScope(user, client, scope) {
 
 
 export default {
-  // generateAccessToken, // optional - used for jwt
-  // generateRefreshToken, // optional
+  generateAccessToken, // optional - used for jwt
+  generateRefreshToken, // optional
   // generateAuthorizationCode, // optional
   getAccessToken,
   getRefreshToken,

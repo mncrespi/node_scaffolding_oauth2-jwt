@@ -10,9 +10,7 @@ URL: https://github.com/mncrespi/node_scaffolding
 - client_credentials 
 
 ## Features
-
 - ES6
-- JWT and express-JWT
 - esLint v4
 - Nodemon
 - debug
@@ -24,6 +22,7 @@ URL: https://github.com/mncrespi/node_scaffolding
 
 
 ### Working on:
+- oAuth2 Server v3 + JWT + express-JWT
 - Handle Errors
 - Bugs
 - authorization_code grant

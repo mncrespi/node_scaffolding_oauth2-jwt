@@ -15,6 +15,7 @@ const paths = {
   ],
   nonJs: [
     './package.json',
+    './**/*.pem', // todo: this line is for jwt rs256 example
     './.gitignore',
   ],
   tests: './server/tests/*.js',

@@ -1,6 +1,6 @@
 export default {
   env: 'development',
-  db: 'mongodb://localhost/node_scaffolding',
+  db: 'mongodb://localhost/node_scaffolding_oauth-jwt',
   port: 3000,
   logger: {
     level: 'debug',
