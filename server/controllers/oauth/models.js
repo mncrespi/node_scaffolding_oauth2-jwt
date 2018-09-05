@@ -20,7 +20,12 @@ import jwt from 'jsonwebtoken'
 import fs from 'fs'
 import moment from 'moment'
 import Promise from 'bluebird'
-import { InvalidTokenError, } from 'oauth2-server'
+import {
+  ServerError,
+  InvalidTokenError,
+  UnauthorizedClientError,
+  UnauthorizedRequestError,
+} from 'oauth2-server'
 
 
 /**
@@ -62,8 +67,8 @@ function generateAccessToken(client, user, scope) {
 
       return resolve(token)
     } catch (e) {
-      // todo: set oauth exception
-      return reject(e)
+      logger.log('debug', 'generateAccessToken::', e.message)
+      return reject(new ServerError(e.message, { code: 500, }))
     }
   })
 }
@@ -109,8 +114,8 @@ function generateRefreshToken(client, user, scope) {
 
       return resolve(token)
     } catch (e) {
-      // todo: set oauth exception
-      return reject(e)
+      logger.log('debug', 'generateAccessToken::', e.message)
+      return reject(new ServerError(e.message, { code: 500, }))
     }
   })
 }
@@ -189,8 +194,8 @@ function getAccessToken(bearerToken) {
       //     return err
       //   })
     } catch (e) {
-      // todo: set oauth exception
-      return reject(e)
+      logger.log('debug', 'getAccessToken::', e.message)
+      return reject(new InvalidTokenError(e.message))
     }
   })
 }
@@ -210,30 +215,35 @@ function getRefreshToken(refreshToken) {
   logger.log('debug', 'getRefreshToken %j', refreshToken)
 
   return new Promise((resolve, reject) => {
-    const publicKey = fs.readFileSync(OAuthConfig.options.jwt.publicKey)
+    try {
+      const publicKey = fs.readFileSync(OAuthConfig.options.jwt.publicKey)
 
-    // Using JWT
-    return jwt.verify(refreshToken, publicKey, (err, decoded) => {
-      if (err)
-        return reject(new InvalidTokenError(err.message))
+      // Using JWT
+      return jwt.verify(refreshToken, publicKey, (err, decoded) => {
+        if (err)
+          return reject(new InvalidTokenError(err.message))
 
-      // Example Validation if you use the same authorization certificate
-      if (decoded.token_type !== 'refresh_token')
-        return reject(new InvalidTokenError('invalid_token'))
+        // Example Validation if you use the same authorization certificate
+        if (decoded.token_type !== 'refresh_token')
+          return reject(new InvalidTokenError('invalid_token'))
 
-      logger.log('debug', 'getAccessToken::JWT::decoded:%j', decoded)
+        logger.log('debug', 'getAccessToken::JWT::decoded:%j', decoded)
 
-      const token = {}
+        const token = {}
 
-      token.user = decoded.user
-      token.client = decoded.client
-      token.client.id = decoded.client._id
-      token.refreshTokenExpiresAt = moment.unix(decoded.exp).toDate()
-      token.refreshToken = refreshToken
-      token.scope = decoded.scope
+        token.user = decoded.user
+        token.client = decoded.client
+        token.client.id = decoded.client._id
+        token.refreshTokenExpiresAt = moment.unix(decoded.exp).toDate()
+        token.refreshToken = refreshToken
+        token.scope = decoded.scope
 
-      return resolve(token)
-    })
+        return resolve(token)
+      })
+    } catch (e) {
+      logger.log('debug', 'getRefreshToken::', e.message)
+      return reject(new InvalidTokenError(e.message))
+    }
 
     // Using JWS
     // if (jws.verify(refreshToken, 'RS256', publicKey)) {
@@ -302,9 +312,8 @@ function getAuthorizationCode(code) {
         })
       })
       .catch((e) => {
-        // todo: set oauth exception
         logger.log('debug', 'getAuthorizationCode - Err: ', err)
-        return reject(e)
+        return reject(new InvalidTokenError(e.message))
       })
   })
 }
@@ -344,9 +353,8 @@ function getClient(clientId, clientSecret) {
         return resolve(client)
       })
       .catch((e) => {
-        // todo: set oauth exception
         logger.log('debug', 'getClient - Err: ', e)
-        return reject(e)
+        return reject(new UnauthorizedClientError(e.message))
       })
   })
 }
@@ -369,9 +377,8 @@ function getUser(username, password) {
       .getUser(username, password)
       .then((user) => resolve(user))
       .catch((e) => {
-        // todo: set oauth exception
         logger.log('debug', 'getUser - Err: ', e)
-        return reject(e)
+        return reject(new UnauthorizedRequestError(e.message))
       })
   })
 }
@@ -400,9 +407,8 @@ function getUserFromClient(client) {
         return resolve(user)
       })
       .catch((e) => {
-        // todo: set oauth exception
         logger.log('debug', 'getUserFromClient - Err: ', e)
-        return reject(e)
+        return reject(new UnauthorizedRequestError(e.message))
       })
   })
 }
@@ -436,8 +442,7 @@ function saveToken(token, client, user) {
 
       return resolve(savedToken)
     } catch (e) {
-      // todo: set oauth exception
-      return reject(e)
+      return reject(new ServerError(e.message, { code: 500, }))
     }
   })
 
@@ -514,9 +519,8 @@ function saveAuthorizationCode(code, client, user) {
         return resolve(code)
       })
       .catch((e) => {
-        // todo: set oauth exception
         logger.log('debug', 'saveAuthorizationCode - Err: ', e)
-        return reject(e)
+        return reject(new ServerError(e.message, { code: 500, }))
       })
   })
 }
@@ -549,6 +553,7 @@ function revokeToken(token) {
   //     .catch((err) => {
   //       logger.log('debug', 'revokeToken - Err: ', err)
   //       return reject(false)
+  //       return reject(new ServerError(e.message, { code: 500, }))
   //     })
   // })
 }
@@ -572,9 +577,8 @@ function revokeAuthorizationCode(code) {
       .removeAuthorizationCode()
       .then((code) => resolve(code))
       .catch((e) => {
-        // todo: set oauth exception
         logger.log('debug', 'revokeAuthorizationCode - Err: ', e)
-        return reject(false)
+        return reject(new ServerError(e.message, { code: 500, }))
       })
   })
 }
