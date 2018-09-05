@@ -1,21 +1,23 @@
 import express from 'express'
 import userRoutes from './user'
-// import expressJwt from 'express-jwt'
+import expressJwt from 'express-jwt'
 // import config from '../../../config/env'
-import authenticate from '../../controllers/oauth/authenticate'
-
+import OAuthConfig from '../../../config/oauth'
+// import authenticate from '../../controllers/oauth/authenticate'
+import fs from 'fs'
 
 const router = express.Router()  	// eslint-disable-line new-cap
 
+const publicKey = fs.readFileSync(OAuthConfig.options.jwt.atPublicKey)
 
 // ------------------------------------------------------
 // Example oAuth2 Protected Routes: BLOCK-START
 // ------------------------------------------------------
-router.get('/secure', authenticate(), function (req, res) {
+router.get('/secure', expressJwt({ secret: publicKey, }), function (req, res) {
   res.json({ message: 'Secure data', })
 })
 
-router.get('/me', authenticate(), function (req, res) {
+router.get('/me', expressJwt({ secret: publicKey, }), function (req, res) {
   res.json({
     me: req.user,
     messsage: 'Authorization success, Without Scopes, Try accessing /profile with `profile` scope',
@@ -24,7 +26,7 @@ router.get('/me', authenticate(), function (req, res) {
   })
 })
 
-router.get('/profile', authenticate({ scope: 'profile', }), function (req, res) {
+router.get('/profile', expressJwt({ secret: publicKey, }), function (req, res) {
   res.json({
     profile: req.user,
   })
@@ -34,7 +36,7 @@ router.get('/profile', authenticate({ scope: 'profile', }), function (req, res) 
 // ------------------------------------------------------
 
 /** mount user routes at /users */
-router.use('/users', authenticate(), userRoutes)
+router.use('/users', expressJwt({ secret: publicKey, }), userRoutes)
 
 /** API Index */
 router.get('/', (req, res) => {

@@ -55,10 +55,9 @@ function generateAccessToken(client, user, scope) {
         user: user,
         client: client,
         scope: scope,
-        token_type: 'access_token', // if you use the same authorization certificate
       }
 
-      const privateKey = fs.readFileSync(OAuthConfig.options.jwt.privateKey)
+      const privateKey = fs.readFileSync(OAuthConfig.options.jwt.atPrivateKey)
 
       const token = jwt.sign(payload, privateKey, {
         expiresIn: OAuthConfig.options.token.accessTokenLifetime,
@@ -97,14 +96,13 @@ function generateRefreshToken(client, user, scope) {
       // Payload
       // todo: this payload is an example
       const payload = {
+        iss: OAuthConfig.options.jwt.iss,
         user: user,
         client: client,
         scope: scope,
-        token_type: 'refresh_token', // if you use the same authorization certificate
-        iss: OAuthConfig.options.jwt.iss,
       }
 
-      const privateKey = fs.readFileSync(OAuthConfig.options.jwt.privateKey)
+      const privateKey = fs.readFileSync(OAuthConfig.options.jwt.rtPrivateKey)
 
       const token = jwt.sign(payload, privateKey, {
         expiresIn: OAuthConfig.options.token.accessTokenLifetime,
@@ -114,7 +112,7 @@ function generateRefreshToken(client, user, scope) {
 
       return resolve(token)
     } catch (e) {
-      logger.log('debug', 'generateAccessToken::', e.message)
+      logger.log('debug', 'generateRefreshToken::', e.message)
       return reject(new ServerError(e.message, { code: 500, }))
     }
   })
@@ -152,7 +150,7 @@ function getAccessToken(bearerToken) {
 
   return new Promise((resolve, reject) => {
     try {
-      const publicKey = fs.readFileSync(OAuthConfig.options.jwt.publicKey)
+      const publicKey = fs.readFileSync(OAuthConfig.options.jwt.atPublicKey)
 
       return jwt.verify(bearerToken, publicKey, (err, decoded) => {
         if (err)
@@ -216,16 +214,12 @@ function getRefreshToken(refreshToken) {
 
   return new Promise((resolve, reject) => {
     try {
-      const publicKey = fs.readFileSync(OAuthConfig.options.jwt.publicKey)
+      const publicKey = fs.readFileSync(OAuthConfig.options.jwt.rtPublicKey)
 
       // Using JWT
       return jwt.verify(refreshToken, publicKey, (err, decoded) => {
         if (err)
           return reject(new InvalidTokenError(err.message))
-
-        // Example Validation if you use the same authorization certificate
-        if (decoded.token_type !== 'refresh_token')
-          return reject(new InvalidTokenError('invalid_token'))
 
         logger.log('debug', 'getAccessToken::JWT::decoded:%j', decoded)
 

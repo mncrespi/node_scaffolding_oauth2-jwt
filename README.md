@@ -1,4 +1,4 @@
-# Example Implementation OAuthServer v3
+# Example Implementation OAuth2Server v3
 
 This Project is based on Node Scaffolding
 
@@ -18,11 +18,11 @@ URL: https://github.com/mncrespi/node_scaffolding
 - JOI with express-validation
 - CORS
 - MongoDB
-- oAuth2 Server v3
+- oAuth2 Server v3 + JWT
+- express-JWT
 
 
 ### Working on:
-- oAuth2 Server v3 + JWT + express-JWT
 - Bugs
 - authorization_code grant
  

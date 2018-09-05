@@ -17,10 +17,12 @@ const
   extendedGrantTypes = {},
   scopes = undefined,
   jwtISS = 'node_scaffolding',
-  jwtPrivateKey = path.join(__dirname, './ac', '/privateKey.pem'),
-  jwtPublicKey = path.join(__dirname, './ac', '/publicKey.pem'),
+  jwtATPrivateKey = path.join(__dirname, './ac', '/at-privateKey.pem'),
+  jwtATPublicKey = path.join(__dirname, './ac', '/at-publicKey.pem'),
+  jwtRTPrivateKey = path.join(__dirname, './ac', '/rt-privateKey.pem'),
+  jwtRTPublicKey = path.join(__dirname, './ac', '/rt-publicKey.pem'),
   grants = [
-    'authorization_code', // WIP
+    'authorization_code',
     'password',
     'refresh_token',
     'client_credentials',
@@ -62,8 +64,10 @@ export default {
     },
     jwt: {
       iss: jwtISS,
-      privateKey: jwtPrivateKey,
-      publicKey: jwtPublicKey,
+      atPrivateKey: jwtATPrivateKey,
+      atPublicKey: jwtATPublicKey,
+      rtPrivateKey: jwtRTPrivateKey,
+      rtPublicKey: jwtRTPublicKey,
     },
   },
   grants,
