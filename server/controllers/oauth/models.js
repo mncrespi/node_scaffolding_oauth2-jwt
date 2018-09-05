@@ -55,7 +55,7 @@ function generateAccessToken(client, user, scope) {
         user: user,
         client: client,
         scope: scope,
-        type: 'access_token', // if you use the same authorization certificate
+        token_type: 'access_token', // if you use the same authorization certificate
       }
 
       const privateKey = fs.readFileSync(OAuthConfig.options.jwt.privateKey)
@@ -100,7 +100,7 @@ function generateRefreshToken(client, user, scope) {
         user: user,
         client: client,
         scope: scope,
-        type: 'refresh_token', // if you use the same authorization certificate
+        token_type: 'refresh_token', // if you use the same authorization certificate
         iss: OAuthConfig.options.jwt.iss,
       }
 
@@ -619,8 +619,8 @@ function validateScope(user, client, scope) {
 
 
 export default {
-  generateAccessToken, // optional - used for jwt
-  generateRefreshToken, // optional
+  generateAccessToken,
+  generateRefreshToken,
   // generateAuthorizationCode, // optional
   getAccessToken,
   getRefreshToken,
