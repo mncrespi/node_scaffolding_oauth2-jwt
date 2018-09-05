@@ -23,7 +23,6 @@ URL: https://github.com/mncrespi/node_scaffolding
 
 ### Working on:
 - oAuth2 Server v3 + JWT + express-JWT
-- Handle Errors
 - Bugs
 - authorization_code grant
  
