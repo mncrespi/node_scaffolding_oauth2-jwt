@@ -21,29 +21,29 @@
 // Ref: https://github.com/winstonjs/winston/blob/master/README.md
 // Ref: https://github.com/winstonjs/winston/issues/1336
 
-import { format, transports, createLogger, config, } from 'winston'
+import {
+  format,
+  transports,
+  createLogger,
+  config,
+} from 'winston'
 
 export default createLogger({
   // defaultMeta: { service: 'user-service', },
   level: 'info',
   levels: config.syslog.levels,
   format: format.combine(
-    format.splat(),
-    format.simple(),
+    // format.splat(),
+    // format.simple(),
     format.colorize(),
     format.timestamp(),
-    format.prettyPrint(),
-    format.json(),
-    format.printf((info) => {
-      return Object.keys(info).reverse().reduce((acc, key, i) => {
-        if (typeof key === 'string') {
-          if (i > 0) acc += ', '
-          acc += `'${key}': '${info[key]}'`
-        }
-        return acc
-      }, '{ ') + ' }'
-    })
+    // format.prettyPrint(),
+    // format.align(),
+    // format.json(),
+
+    format.printf((info) => `${info.timestamp} ${info.level}: ${info.message}`)
   ),
+
   transports: [
     new transports.Console(),
     new transports.File({ filename: 'error.log', level: 'error', }),

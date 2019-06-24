@@ -15,6 +15,7 @@ import routes from '../server/routes'
 import winstonInstance from './winston'
 import oAuthComponents        from '../server/controllers/oauth'
 
+import winston from 'winston'
 
 const app = express()
 
@@ -41,14 +42,41 @@ app.use(cors())
 
 // enable detailed API logging in dev env
 if (config.env === 'development') {
-  expressWinston.requestWhitelist.push('body')
-  expressWinston.responseWhitelist.push('body')
-  app.use(expressWinston.logger({
-    winstonInstance,
-    meta: true,   // optional: log meta data about request (defaults to true)
-    msg: 'HTTP {{req.method}} {{req.url}} {{res.statusCode}} {{res.responseTime}}ms',
-    colorStatus: true,   // Color the status code (default green, 3XX cyan, 4XX yellow, 5XX red).
-  }))
+  // expressWinston.requestWhitelist.push('body')
+  // expressWinston.responseWhitelist.push('body')
+  // app.use(expressWinston.logger({
+  //   winstonInstance,
+  //   meta: true,   // optional: log meta data about request (defaults to true)
+  //   msg: 'HTTP {{req.method}} {{req.url}} {{res.statusCode}} {{res.responseTime}}ms',
+  //   colorStatus: true,   // Color the status code (default green, 3XX cyan, 4XX yellow, 5XX red).
+  // }))
+
+
+  // New Example
+  // const winstonOptions = {
+  //   format: winston.format.combine(
+  //     winston.format.colorize(),
+  //     winston.format.timestamp(),
+  //     winston.format.align(),
+  //     winston.format.printf((info) => `${info.timestamp} ${info.level}: ${info.message}`)
+  //   ),
+
+  //   transports: [
+  //     new winston.transports.Console(),
+  //   ],
+  // }
+
+  const expressWinstonOptions = {
+    meta: false,
+    msg: '{{req.ip}} {{req.method}} {{req.url}} {{res.statusCode}} {{res.responseTime}}ms',
+    colorize: true,
+  }
+
+  // HACK: Remove when `express-winston` fixes this
+  // HACK: See https://github.com/bithavoc/express-winston/issues/163
+  // expressWinstonOptions.winstonInstance = winston.createLogger(winstonOptions)
+  expressWinstonOptions.winstonInstance = winstonInstance
+  app.use(expressWinston.logger(expressWinstonOptions))
 }
 
 // mount all routes on /api path
