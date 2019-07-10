@@ -6,21 +6,24 @@ import cookieParser from 'cookie-parser'
 import cors from 'cors'
 import express from 'express'
 import expressValidation from 'express-validation'
-import expressWinston from 'express-winston'
+// import expressWinston from 'express-winston'
 import helmet from 'helmet'
 import httpStatus from 'http-status'
-import logger from 'morgan'
+import morgan from 'morgan'
 import methodOverride from 'method-override'
 import routes from '../server/routes'
-import winstonInstance from './winston'
-import oAuthComponents        from '../server/controllers/oauth'
+// import winstonInstance from './winston'
+import winston from './winston'
+import oAuthComponents from '../server/controllers/oauth'
 
 
 const app = express()
 
-if (config.env === 'development') {
-  app.use(logger('dev'))
-}
+// if (config.env === 'development') {
+//   app.use(morgan('dev'))
+// }
+// app.use(morgan('dev'))
+app.use(morgan('combined', { stream: winston.stream, }))
 
 // parse body params and attache them to req.body
 app.use(bodyParser.json())
@@ -40,16 +43,16 @@ app.disable('x-powered-by')
 app.use(cors())
 
 // enable detailed API logging in dev env
-if (config.env === 'development') {
-  expressWinston.requestWhitelist.push('body')
-  expressWinston.responseWhitelist.push('body')
-  app.use(expressWinston.logger({
-    winstonInstance,
-    meta: true,   // optional: log meta data about request (defaults to true)
-    msg: 'HTTP {{req.method}} {{req.url}} {{res.statusCode}} {{res.responseTime}}ms',
-    colorStatus: true,   // Color the status code (default green, 3XX cyan, 4XX yellow, 5XX red).
-  }))
-}
+// if (config.env === 'development') {
+//   expressWinston.requestWhitelist.push('body')
+//   expressWinston.responseWhitelist.push('body')
+//   app.use(expressWinston.logger({
+//     winstonInstance,
+//     meta: true,   // optional: log meta data about request (defaults to true)
+//     msg: 'HTTP {{req.method}} {{req.url}} {{res.statusCode}} {{res.responseTime}}ms',
+//     colorStatus: true,   // Color the status code (default green, 3XX cyan, 4XX yellow, 5XX red).
+//   }))
+// }
 
 // mount all routes on /api path
 app.use('/', routes)
@@ -78,11 +81,11 @@ app.use((req, res, next) => {
 })
 
 // log error in winston transports except when executing test suite
-if (config.env !== 'test') {
-  app.use(expressWinston.errorLogger({
-    winstonInstance,
-  }))
-}
+// if (config.env !== 'test') {
+//   app.use(expressWinston.errorLogger({
+//     winstonInstance,
+//   }))
+// }
 
 // error handler, send stacktrace only during development
 app.use((err, req, res, next) => {
